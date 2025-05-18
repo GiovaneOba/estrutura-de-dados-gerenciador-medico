@@ -1,4 +1,4 @@
-#include "2_estruturas.h"
+#include "estruturas.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,15 +9,17 @@ int menuPrincipal() {
   int escolha;
   printf("1.Cadastrar Pacientes\n"
          "2.Atendimento\n"
+         "3.Pesquisa\n"
          "0.Sair\n");
-  printf("Selecione uma opção (0-2): ");
+  printf("Selecione uma opção (0-3): ");
   scanf("%d", &escolha);
   printf("\n");
   return escolha;
 }
 
 // Menu de Cadastro
-void menuCadastro(Lista *lista) {
+void menuCadastro(Lista *lista, ABB *arvoreAno, ABB *arvoreMes, 
+                 ABB *arvoreDia, ABB *arvoreIdade) {
   int escolha;
   printf("1-Cadastrar novo paciente\n"
          "2-Consultar paciente por RG\n"
@@ -31,7 +33,7 @@ void menuCadastro(Lista *lista) {
   switch (escolha) {
     case 1:
       // Registrar novo paciente
-      adicionarPaciente(lista);
+      adicionarPaciente(lista, arvoreAno, arvoreMes, arvoreDia, arvoreIdade);
       break;
     case 2:
       // Buscar paciente por RG
@@ -47,7 +49,7 @@ void menuCadastro(Lista *lista) {
       break;
     case 5:
       // Remover registro de paciente
-      excluirPaciente(lista);
+      excluirPaciente(lista, arvoreAno, arvoreMes, arvoreDia, arvoreIdade);
       break;
     default:
       printf("Opção inválida. Tente novamente.\n");
@@ -77,6 +79,41 @@ void menuAtendimento(Lista *lista, Fila *fila, Registro *paciente) {
     case 3:
       // Visualizar fila de espera
       exibirFila(fila);
+      break;
+    default:
+      printf("Opção inválida. Tente novamente.\n");
+      break;
+    }
+}
+
+// Menu de Pesquisa
+void menuPesquisa(ABB *arvoreAno, ABB *arvoreMes, 
+                 ABB *arvoreDia, ABB *arvoreIdade, Registro *paciente) {
+  int escolha;
+  printf("1-Mostrar pacientes ordenados por ano de registro\n"
+         "2-Mostrar pacientes ordenados por mês de registro\n"
+         "3-Mostrar pacientes ordenados por dia de registro\n"
+         "4-Mostrar pacientes ordenados por idade\n");
+  printf("Selecione uma opção: ");
+  scanf("%d", &escolha);
+  printf("\n");
+
+  switch (escolha) {
+    case 1:
+      // Visualizar pacientes ordenados por ano
+      percorrerEmOrdem(arvoreAno->raizArvore);
+      break;
+    case 2:
+      // Visualizar pacientes ordenados por mês
+      percorrerEmOrdem(arvoreMes->raizArvore);
+      break;
+    case 3:
+      // Visualizar pacientes ordenados por dia
+      percorrerEmOrdem(arvoreDia->raizArvore);
+      break;
+    case 4:
+      // Visualizar pacientes ordenados por idade
+      percorrerEmOrdem(arvoreIdade->raizArvore);
       break;
     default:
       printf("Opção inválida. Tente novamente.\n");
@@ -120,7 +157,8 @@ Data *criarDataRegistro(int dia, int mes, int ano) {
 }
 
 // Adicionar paciente
-void adicionarPaciente(Lista *lista) {
+void adicionarPaciente(Lista *lista, ABB *arvoreAno, ABB *arvoreMes, 
+                      ABB *arvoreDia, ABB *arvoreIdade) {
   char nome[50];
   char documento[10];
   int idade = 0;
@@ -171,6 +209,12 @@ void adicionarPaciente(Lista *lista) {
   novo->prox = lista->inicio;
   lista->inicio = novo;
   lista->tamanho++;
+
+  // Adicionar às árvores
+  inserirPorAno(arvoreAno, paciente);
+  inserirPorMes(arvoreMes, paciente);
+  inserirPorDia(arvoreDia, paciente);
+  inserirPorIdade(arvoreIdade, paciente);
 
   printf("\n");
   printf("Paciente registrado com sucesso!\n");
@@ -322,7 +366,8 @@ void atualizarPaciente(Lista *lista) {
 }
 
 // Excluir paciente
-void excluirPaciente(Lista *lista) {
+void excluirPaciente(Lista *lista, ABB *arvoreAno, ABB *arvoreMes, 
+                    ABB *arvoreDia, ABB *arvoreIdade) {
   char documento[10];
   printf("Digite o RG do paciente a ser removido: ");
   scanf("%s", documento);
@@ -347,6 +392,16 @@ void excluirPaciente(Lista *lista) {
       anterior->prox = atual->prox;
       lista->tamanho--;
     }
+    
+    EABB *nodoRemoverAno = buscarNaArvoreAno(arvoreAno, atual->dados);
+    EABB *nodoRemoverMes = buscarNaArvoreMes(arvoreMes, atual->dados);
+    EABB *nodoRemoverDia = buscarNaArvoreDia(arvoreDia, atual->dados);
+    EABB *nodoRemoverIdade = buscarNaArvoreIdade(arvoreIdade, atual->dados);
+    
+    removerDaArvoreAno(arvoreAno, nodoRemoverAno);
+    removerDaArvoreMes(arvoreMes, nodoRemoverMes);
+    removerDaArvoreDia(arvoreDia, nodoRemoverDia);
+    removerDaArvoreIdade(arvoreIdade, nodoRemoverIdade);
     
     printf("Paciente removido com sucesso\n");
   }
@@ -467,6 +522,544 @@ void exibirFila(Fila *fila) {
     posicao++;
   }
   printf("\n");
+}
+
+// Funções para árvore
+EABB *criarNodoArvore(Registro *paciente) {
+  EABB *nodo = malloc(sizeof(EABB));
+  nodo->dados = paciente;
+  nodo->esquerda = NULL;
+  nodo->direita = NULL;
+  nodo->superior = NULL;
+  return nodo;
+}
+
+ABB *inicializarArvore() {
+  ABB *arvore = malloc(sizeof(ABB));
+  arvore->raizArvore = NULL;
+  arvore->tamanho = 0;
+  return arvore;
+}
+
+// Percorrer árvore em ordem
+void percorrerEmOrdem(EABB *raiz) {
+  if (raiz != NULL) {
+    percorrerEmOrdem(raiz->esquerda);
+    printf("Nome: %s\n", raiz->dados->nomePaciente);
+    printf("RG: %s\n", raiz->dados->documentoRG);
+    printf("Idade: %d\n", raiz->dados->idadePaciente);
+    printf("Data: %d/%d/%d\n\n", raiz->dados->dataRegistro->diaMes,
+           raiz->dados->dataRegistro->mesAno, raiz->dados->dataRegistro->anoData);
+    percorrerEmOrdem(raiz->direita);
+  }
+}
+
+// Inserir por ano
+void *inserirPorAno(ABB *arvore, Registro *paciente) {
+  EABB *novo = criarNodoArvore(paciente);
+  
+  if (arvore->raizArvore == NULL) {
+    arvore->raizArvore = novo;
+    arvore->tamanho++;
+    return NULL;
+  }
+  
+  EABB *atual = arvore->raizArvore;
+  EABB *anterior = NULL;
+  
+  while (atual != NULL) {
+    anterior = atual;
+    
+    if (paciente->dataRegistro->anoData < atual->dados->dataRegistro->anoData) {
+      atual = atual->esquerda;
+    } else {
+      atual = atual->direita;
+    }
+  }
+  
+  novo->superior = anterior;
+  
+  if (paciente->dataRegistro->anoData < anterior->dados->dataRegistro->anoData) {
+    anterior->esquerda = novo;
+  } else {
+    anterior->direita = novo;
+  }
+  
+  arvore->tamanho++;
+  return NULL;
+}
+
+// Inserir por mês
+void *inserirPorMes(ABB *arvore, Registro *paciente) {
+  EABB *novo = criarNodoArvore(paciente);
+  
+  if (arvore->raizArvore == NULL) {
+    arvore->raizArvore = novo;
+    arvore->tamanho++;
+    return NULL;
+  }
+  
+  EABB *atual = arvore->raizArvore;
+  EABB *anterior = NULL;
+  
+  while (atual != NULL) {
+    anterior = atual;
+    
+    if (paciente->dataRegistro->mesAno < atual->dados->dataRegistro->mesAno) {
+      atual = atual->esquerda;
+    } else {
+      atual = atual->direita;
+    }
+  }
+  
+  novo->superior = anterior;
+  
+  if (paciente->dataRegistro->mesAno < anterior->dados->dataRegistro->mesAno) {
+    anterior->esquerda = novo;
+  } else {
+    anterior->direita = novo;
+  }
+  
+  arvore->tamanho++;
+  return NULL;
+}
+
+// Inserir por dia
+void *inserirPorDia(ABB *arvore, Registro *paciente) {
+  EABB *novo = criarNodoArvore(paciente);
+  
+  if (arvore->raizArvore == NULL) {
+    arvore->raizArvore = novo;
+    arvore->tamanho++;
+    return NULL;
+  }
+  
+  EABB *atual = arvore->raizArvore;
+  EABB *anterior = NULL;
+  
+  while (atual != NULL) {
+    anterior = atual;
+    
+    if (paciente->dataRegistro->diaMes < atual->dados->dataRegistro->diaMes) {
+      atual = atual->esquerda;
+    } else {
+      atual = atual->direita;
+    }
+  }
+  
+  novo->superior = anterior;
+  
+  if (paciente->dataRegistro->diaMes < anterior->dados->dataRegistro->diaMes) {
+    anterior->esquerda = novo;
+  } else {
+    anterior->direita = novo;
+  }
+  
+  arvore->tamanho++;
+  return NULL;
+}
+
+// Inserir por idade
+void *inserirPorIdade(ABB *arvore, Registro *paciente) {
+  EABB *novo = criarNodoArvore(paciente);
+  
+  if (arvore->raizArvore == NULL) {
+    arvore->raizArvore = novo;
+    arvore->tamanho++;
+    return NULL;
+  }
+  
+  EABB *atual = arvore->raizArvore;
+  EABB *anterior = NULL;
+  
+  while (atual != NULL) {
+    anterior = atual;
+    
+    if (paciente->idadePaciente < atual->dados->idadePaciente) {
+      atual = atual->esquerda;
+    } else {
+      atual = atual->direita;
+    }
+  }
+  
+  novo->superior = anterior;
+  
+  if (paciente->idadePaciente < anterior->dados->idadePaciente) {
+    anterior->esquerda = novo;
+  } else {
+    anterior->direita = novo;
+  }
+  
+  arvore->tamanho++;
+  return NULL;
+}
+
+// Buscar na árvore por ano
+EABB* buscarNaArvoreAno(ABB *arvore, Registro *paciente) {
+  EABB *atual = arvore->raizArvore;
+  
+  while (atual != NULL) {
+    if (atual->dados == paciente) {
+      return atual;
+    }
+    
+    if (paciente->dataRegistro->anoData < atual->dados->dataRegistro->anoData) {
+      atual = atual->esquerda;
+    } else {
+      atual = atual->direita;
+    }
+  }
+  
+  return NULL;
+}
+
+// Buscar na árvore por mês
+EABB* buscarNaArvoreMes(ABB *arvore, Registro *paciente) {
+  EABB *atual = arvore->raizArvore;
+  
+  while (atual != NULL) {
+    if (atual->dados == paciente) {
+      return atual;
+    }
+    
+    if (paciente->dataRegistro->mesAno < atual->dados->dataRegistro->mesAno) {
+      atual = atual->esquerda;
+    } else {
+      atual = atual->direita;
+    }
+  }
+  
+  return NULL;
+}
+
+// Buscar na árvore por dia
+EABB* buscarNaArvoreDia(ABB *arvore, Registro *paciente) {
+  EABB *atual = arvore->raizArvore;
+  
+  while (atual != NULL) {
+    if (atual->dados == paciente) {
+      return atual;
+    }
+    
+    if (paciente->dataRegistro->diaMes < atual->dados->dataRegistro->diaMes) {
+      atual = atual->esquerda;
+    } else {
+      atual = atual->direita;
+    }
+  }
+  
+  return NULL;
+}
+
+// Buscar na árvore por idade
+EABB* buscarNaArvoreIdade(ABB *arvore, Registro *paciente) {
+  EABB *atual = arvore->raizArvore;
+  
+  while (atual != NULL) {
+    if (atual->dados == paciente) {
+      return atual;
+    }
+    
+    if (paciente->idadePaciente < atual->dados->idadePaciente) {
+      atual = atual->esquerda;
+    } else {
+      atual = atual->direita;
+    }
+  }
+  
+  return NULL;
+}
+
+// Remover da árvore por ano
+void removerDaArvoreAno(ABB *arvore, EABB *nodo) {
+  if (nodo == NULL) {
+    return;
+  }
+  
+  // Caso 1: Nodo é folha
+  if (nodo->esquerda == NULL && nodo->direita == NULL) {
+    if (nodo->superior == NULL) {
+      arvore->raizArvore = NULL;
+    } else if (nodo == nodo->superior->esquerda) {
+      nodo->superior->esquerda = NULL;
+    } else {
+      nodo->superior->direita = NULL;
+    }
+    free(nodo);
+    arvore->tamanho--;
+  }
+  // Caso 2: Nodo tem apenas um filho
+  else if (nodo->esquerda == NULL) {
+    if (nodo->superior == NULL) {
+      arvore->raizArvore = nodo->direita;
+      nodo->direita->superior = NULL;
+    } else if (nodo == nodo->superior->esquerda) {
+      nodo->superior->esquerda = nodo->direita;
+      nodo->direita->superior = nodo->superior;
+    } else {
+      nodo->superior->direita = nodo->direita;
+      nodo->direita->superior = nodo->superior;
+    }
+    free(nodo);
+    arvore->tamanho--;
+  }
+  else if (nodo->direita == NULL) {
+    if (nodo->superior == NULL) {
+      arvore->raizArvore = nodo->esquerda;
+      nodo->esquerda->superior = NULL;
+    } else if (nodo == nodo->superior->esquerda) {
+      nodo->superior->esquerda = nodo->esquerda;
+      nodo->esquerda->superior = nodo->superior;
+    } else {
+      nodo->superior->direita = nodo->esquerda;
+      nodo->esquerda->superior = nodo->superior;
+    }
+    free(nodo);
+    arvore->tamanho--;
+  }
+  // Caso 3: Nodo tem dois filhos
+  else {
+    EABB *sucessor = nodo->direita;
+    while (sucessor->esquerda != NULL) {
+      sucessor = sucessor->esquerda;
+    }
+    
+    nodo->dados = sucessor->dados;
+    
+    if (sucessor->superior == nodo) {
+      nodo->direita = sucessor->direita;
+      if (sucessor->direita != NULL) {
+        sucessor->direita->superior = nodo;
+      }
+    } else {
+      sucessor->superior->esquerda = sucessor->direita;
+      if (sucessor->direita != NULL) {
+        sucessor->direita->superior = sucessor->superior;
+      }
+    }
+    
+    free(sucessor);
+    arvore->tamanho--;
+  }
+}
+
+// Remover da árvore por mês
+void removerDaArvoreMes(ABB *arvore, EABB *nodo) {
+  if (nodo == NULL) {
+    return;
+  }
+  
+  // Caso 1: Nodo é folha
+  if (nodo->esquerda == NULL && nodo->direita == NULL) {
+    if (nodo->superior == NULL) {
+      arvore->raizArvore = NULL;
+    } else if (nodo == nodo->superior->esquerda) {
+      nodo->superior->esquerda = NULL;
+    } else {
+      nodo->superior->direita = NULL;
+    }
+    free(nodo);
+    arvore->tamanho--;
+  }
+  // Caso 2: Nodo tem apenas um filho
+  else if (nodo->esquerda == NULL) {
+    if (nodo->superior == NULL) {
+      arvore->raizArvore = nodo->direita;
+      nodo->direita->superior = NULL;
+    } else if (nodo == nodo->superior->esquerda) {
+      nodo->superior->esquerda = nodo->direita;
+      nodo->direita->superior = nodo->superior;
+    } else {
+      nodo->superior->direita = nodo->direita;
+      nodo->direita->superior = nodo->superior;
+    }
+    free(nodo);
+    arvore->tamanho--;
+  }
+  else if (nodo->direita == NULL) {
+    if (nodo->superior == NULL) {
+      arvore->raizArvore = nodo->esquerda;
+      nodo->esquerda->superior = NULL;
+    } else if (nodo == nodo->superior->esquerda) {
+      nodo->superior->esquerda = nodo->esquerda;
+      nodo->esquerda->superior = nodo->superior;
+    } else {
+      nodo->superior->direita = nodo->esquerda;
+      nodo->esquerda->superior = nodo->superior;
+    }
+    free(nodo);
+    arvore->tamanho--;
+  }
+  // Caso 3: Nodo tem dois filhos
+  else {
+    EABB *sucessor = nodo->direita;
+    while (sucessor->esquerda != NULL) {
+      sucessor = sucessor->esquerda;
+    }
+    
+    nodo->dados = sucessor->dados;
+    
+    if (sucessor->superior == nodo) {
+      nodo->direita = sucessor->direita;
+      if (sucessor->direita != NULL) {
+        sucessor->direita->superior = nodo;
+      }
+    } else {
+      sucessor->superior->esquerda = sucessor->direita;
+      if (sucessor->direita != NULL) {
+        sucessor->direita->superior = sucessor->superior;
+      }
+    }
+    
+    free(sucessor);
+    arvore->tamanho--;
+  }
+}
+
+// Remover da árvore por dia
+void removerDaArvoreDia(ABB *arvore, EABB *nodo) {
+  if (nodo == NULL) {
+    return;
+  }
+  
+  // Caso 1: Nodo é folha
+  if (nodo->esquerda == NULL && nodo->direita == NULL) {
+    if (nodo->superior == NULL) {
+      arvore->raizArvore = NULL;
+    } else if (nodo == nodo->superior->esquerda) {
+      nodo->superior->esquerda = NULL;
+    } else {
+      nodo->superior->direita = NULL;
+    }
+    free(nodo);
+    arvore->tamanho--;
+  }
+  // Caso 2: Nodo tem apenas um filho
+  else if (nodo->esquerda == NULL) {
+    if (nodo->superior == NULL) {
+      arvore->raizArvore = nodo->direita;
+      nodo->direita->superior = NULL;
+    } else if (nodo == nodo->superior->esquerda) {
+      nodo->superior->esquerda = nodo->direita;
+      nodo->direita->superior = nodo->superior;
+    } else {
+      nodo->superior->direita = nodo->direita;
+      nodo->direita->superior = nodo->superior;
+    }
+    free(nodo);
+    arvore->tamanho--;
+  }
+  else if (nodo->direita == NULL) {
+    if (nodo->superior == NULL) {
+      arvore->raizArvore = nodo->esquerda;
+      nodo->esquerda->superior = NULL;
+    } else if (nodo == nodo->superior->esquerda) {
+      nodo->superior->esquerda = nodo->esquerda;
+      nodo->esquerda->superior = nodo->superior;
+    } else {
+      nodo->superior->direita = nodo->esquerda;
+      nodo->esquerda->superior = nodo->superior;
+    }
+    free(nodo);
+    arvore->tamanho--;
+  }
+  // Caso 3: Nodo tem dois filhos
+  else {
+    EABB *sucessor = nodo->direita;
+    while (sucessor->esquerda != NULL) {
+      sucessor = sucessor->esquerda;
+    }
+    
+    nodo->dados = sucessor->dados;
+    
+    if (sucessor->superior == nodo) {
+      nodo->direita = sucessor->direita;
+      if (sucessor->direita != NULL) {
+        sucessor->direita->superior = nodo;
+      }
+    } else {
+      sucessor->superior->esquerda = sucessor->direita;
+      if (sucessor->direita != NULL) {
+        sucessor->direita->superior = sucessor->superior;
+      }
+    }
+    
+    free(sucessor);
+    arvore->tamanho--;
+  }
+}
+
+// Remover da árvore por idade
+void removerDaArvoreIdade(ABB *arvore, EABB *nodo) {
+  if (nodo == NULL) {
+    return;
+  }
+  
+  // Caso 1: Nodo é folha
+  if (nodo->esquerda == NULL && nodo->direita == NULL) {
+    if (nodo->superior == NULL) {
+      arvore->raizArvore = NULL;
+    } else if (nodo == nodo->superior->esquerda) {
+      nodo->superior->esquerda = NULL;
+    } else {
+      nodo->superior->direita = NULL;
+    }
+    free(nodo);
+    arvore->tamanho--;
+  }
+  // Caso 2: Nodo tem apenas um filho
+  else if (nodo->esquerda == NULL) {
+    if (nodo->superior == NULL) {
+      arvore->raizArvore = nodo->direita;
+      nodo->direita->superior = NULL;
+    } else if (nodo == nodo->superior->esquerda) {
+      nodo->superior->esquerda = nodo->direita;
+      nodo->direita->superior = nodo->superior;
+    } else {
+      nodo->superior->direita = nodo->direita;
+      nodo->direita->superior = nodo->superior;
+    }
+    free(nodo);
+    arvore->tamanho--;
+  }
+  else if (nodo->direita == NULL) {
+    if (nodo->superior == NULL) {
+      arvore->raizArvore = nodo->esquerda;
+      nodo->esquerda->superior = NULL;
+    } else if (nodo == nodo->superior->esquerda) {
+      nodo->superior->esquerda = nodo->esquerda;
+      nodo->esquerda->superior = nodo->superior;
+    } else {
+      nodo->superior->direita = nodo->esquerda;
+      nodo->esquerda->superior = nodo->superior;
+    }
+    free(nodo);
+    arvore->tamanho--;
+  }
+  // Caso 3: Nodo tem dois filhos
+  else {
+    EABB *sucessor = nodo->direita;
+    while (sucessor->esquerda != NULL) {
+      sucessor = sucessor->esquerda;
+    }
+    
+    nodo->dados = sucessor->dados;
+    
+    if (sucessor->superior == nodo) {
+      nodo->direita = sucessor->direita;
+      if (sucessor->direita != NULL) {
+        sucessor->direita->superior = nodo;
+      }
+    } else {
+      sucessor->superior->esquerda = sucessor->direita;
+      if (sucessor->direita != NULL) {
+        sucessor->direita->superior = sucessor->superior;
+      }
+    }
+    
+    free(sucessor);
+    arvore->tamanho--;
+  }
 }
 
 void limparBuffer() {

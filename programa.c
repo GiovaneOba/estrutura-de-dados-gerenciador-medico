@@ -1,12 +1,17 @@
 #include <stdio.h>
-#include "2_estruturas.h"
-#include "2_operacoes.c"
+#include "estruturas.h"
+#include "operacoes.c"
 
 int main(void) {
   int opcao = -1;
   
   Lista *listaPacientes = inicializarLista();
   Fila *filaAtendimento = inicializarFila();
+
+  ABB *arvoreAno = inicializarArvore();
+  ABB *arvoreMes = inicializarArvore();
+  ABB *arvoreDia = inicializarArvore();
+  ABB *arvoreIdade = inicializarArvore();
   
   Registro pacienteAtual;
   
@@ -18,10 +23,13 @@ int main(void) {
         }
         switch (opcao) {
             case 1:
-                menuCadastro(listaPacientes);
+                menuCadastro(listaPacientes, arvoreAno, arvoreMes, arvoreDia, arvoreIdade);
                 break;
             case 2:
                 menuAtendimento(listaPacientes, filaAtendimento, &pacienteAtual);
+                break;
+            case 3:
+                menuPesquisa(arvoreAno, arvoreMes, arvoreDia, arvoreIdade, &pacienteAtual);
                 break;
             default:
                 printf("⚠️  Opção inválida! Por favor, tente novamente.\n");
