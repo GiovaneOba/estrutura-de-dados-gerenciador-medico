@@ -1,4 +1,4 @@
-#include "1_estruturas.h"
+#include "2_estruturas.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,8 +8,9 @@
 int menuPrincipal() {
   int escolha;
   printf("1.Cadastrar Pacientes\n"
+         "2.Atendimento\n"
          "0.Sair\n");
-  printf("Selecione uma opção (0-1): ");
+  printf("Selecione uma opção (0-2): ");
   scanf("%d", &escolha);
   printf("\n");
   return escolha;
@@ -47,6 +48,35 @@ void menuCadastro(Lista *lista) {
     case 5:
       // Remover registro de paciente
       excluirPaciente(lista);
+      break;
+    default:
+      printf("Opção inválida. Tente novamente.\n");
+      break;
+    }
+}
+
+// Menu de Atendimento
+void menuAtendimento(Lista *lista, Fila *fila, Registro *paciente) {
+  int escolha;
+  printf("1-Enfileirar paciente\n"
+         "2-Desenfileirar paciente\n"
+         "3-Mostrar fila\n");
+  printf("Selecione uma opção: ");
+  scanf("%d", &escolha);
+  printf("\n");
+
+  switch (escolha) {
+    case 1:
+      // Adicionar paciente à fila
+      adicionarNaFila(lista, fila, paciente);
+      break;
+    case 2:
+      // Atender próximo paciente
+      removerDaFila(lista, fila, paciente);
+      break;
+    case 3:
+      // Visualizar fila de espera
+      exibirFila(fila);
       break;
     default:
       printf("Opção inválida. Tente novamente.\n");
@@ -320,6 +350,123 @@ void excluirPaciente(Lista *lista) {
     
     printf("Paciente removido com sucesso\n");
   }
+}
+
+// Funções para fila
+EFila *criarNodoFila(Registro *paciente) {
+  EFila *nodo = malloc(sizeof(EFila));
+  nodo->prox = NULL;
+  nodo->dados = paciente;
+  return nodo;
+}
+
+Fila *inicializarFila() {
+  Fila *fila = malloc(sizeof(Fila));
+  fila->inicio = NULL;
+  fila->fim = NULL;
+  fila->tamanho = 0;
+  return fila;
+}
+
+Registro *buscarPaciente(Lista *lista, char *documento) {
+  Registro *ficha = malloc(sizeof(Registro));
+  ELista *atual = lista->inicio;
+  ELista *anterior = NULL;
+  
+  while (atual != NULL && strcmp(atual->dados->documentoRG, documento) != 0) {
+    anterior = atual;
+    atual = atual->prox;
+  }
+  
+  if (atual != NULL) {
+    return atual->dados;
+  } else {
+    ficha = NULL;
+    printf("Paciente não encontrado no sistema.\n");
+    printf("\n");
+    return ficha;
+  }
+}
+
+// Adicionar paciente à fila
+void adicionarNaFila(Lista *lista, Fila *fila, Registro *paciente) {
+  char documento[10];
+  printf("Digite o RG do paciente: ");
+  scanf("%s", documento);
+  printf("\n");
+  
+  Registro *pacienteEncontrado = buscarPaciente(lista, documento);
+  if (pacienteEncontrado == NULL) {
+    return;
+  }
+  
+  // Verificar se paciente já está na fila
+  EFila *atual = fila->inicio;
+  while (atual != NULL && atual->dados != pacienteEncontrado) {
+    atual = atual->prox;
+  }
+  
+  if (atual != NULL) {
+    printf("Paciente já está na fila de atendimento\n");
+    printf("\n");
+    return;
+  }
+  
+  // Adicionar paciente à fila
+  EFila *novo = criarNodoFila(pacienteEncontrado);
+  if (fila->tamanho == 0) {
+    fila->inicio = novo;
+  } else {
+    fila->fim->prox = novo;
+  }
+  
+  fila->fim = novo;
+  fila->tamanho++;
+  printf("Paciente %s adicionado à fila de atendimento!\n", pacienteEncontrado->nomePaciente);
+  printf("\n");
+}
+
+// Atender próximo paciente
+Registro *removerDaFila(Lista *lista, Fila *fila, Registro *paciente) {
+  if (fila->inicio == NULL) {
+    printf("Fila de atendimento vazia, nenhum paciente para atender.\n");
+    return NULL;
+  }
+  
+  EFila *removido = fila->inicio;
+  Registro *pacienteAtendido = removido->dados;
+  
+  fila->inicio = fila->inicio->prox;
+  if (fila->inicio == NULL) {
+    fila->fim = NULL;
+  }
+  
+  fila->tamanho--;
+  printf("Paciente %s foi atendido e removido da fila.\n", pacienteAtendido->nomePaciente);
+  printf("\n");
+  
+  free(removido);
+  return pacienteAtendido;
+}
+
+// Exibir fila de atendimento
+void exibirFila(Fila *fila) {
+  if (fila->inicio == NULL) {
+    printf("Fila de atendimento vazia.\n");
+    printf("\n");
+    return;
+  }
+  
+  printf("Fila de atendimento atual:\n");
+  EFila *atual = fila->inicio;
+  int posicao = 1;
+  
+  while (atual != NULL) {
+    printf("%d. %s (RG: %s)\n", posicao, atual->dados->nomePaciente, atual->dados->documentoRG);
+    atual = atual->prox;
+    posicao++;
+  }
+  printf("\n");
 }
 
 void limparBuffer() {
